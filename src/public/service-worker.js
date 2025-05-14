@@ -64,36 +64,91 @@ self.addEventListener('notificationclick', (event) => {
   );
 });
 
-// Workbox: Cache dokumen, script, style dengan NetworkFirst (ambil versi terbaru jika ada)
+// Cache halaman utama
 workbox.routing.registerRoute(
-  ({request}) =>
-    request.destination === 'document' ||
-    request.destination === 'script' ||
-    request.destination === 'style',
+  ({request}) => request.mode === 'navigate',
   new workbox.strategies.NetworkFirst({
-    cacheName: 'assets-cache-' + CACHE_VERSION,
-  })
-);
-
-// Workbox: Cache API (contoh endpoint /stories, sesuaikan jika endpoint lain)
-workbox.routing.registerRoute(
-  ({url}) => url.pathname.startsWith('/api/'),
-  new workbox.strategies.NetworkFirst({
-    cacheName: 'api-cache-' + CACHE_VERSION,
-    networkTimeoutSeconds: 5,
+    cacheName: 'pages-cache-' + CACHE_VERSION,
     plugins: [
-      new workbox.expiration.ExpirationPlugin({ maxEntries: 30, maxAgeSeconds: 60 * 5 })
+      new workbox.expiration.ExpirationPlugin({
+        maxAgeSeconds: 7 * 24 * 60 * 60, // 1 week
+      })
     ]
   })
 );
 
-// Workbox: Cache gambar
+// Cache assets (JS, CSS, Web Workers)
+workbox.routing.registerRoute(
+  ({request}) =>
+    request.destination === 'script' ||
+    request.destination === 'style' ||
+    request.destination === 'worker',
+  new workbox.strategies.StaleWhileRevalidate({
+    cacheName: 'assets-cache-' + CACHE_VERSION,
+    plugins: [
+      new workbox.expiration.ExpirationPlugin({
+        maxEntries: 60,
+        maxAgeSeconds: 30 * 24 * 60 * 60, // 30 days
+      })
+    ]
+  })
+);
+
+// Cache API dengan fallback ke IndexedDB
+workbox.routing.registerRoute(
+  new RegExp('/stories($|\\?.*)'),
+  async ({event}) => {
+    try {
+      // Try network first
+      const response = await fetch(event.request);
+      if (response.ok) {
+        const clone = response.clone();
+        const data = await clone.json();
+        
+        // Store in IndexedDB
+        const db = await openDB();
+        const tx = db.transaction('stories', 'readwrite');
+        const store = tx.objectStore('stories');
+        data.listStory.forEach(story => store.put(story));
+        
+        return response;
+      }
+      throw new Error('Network response was not ok');
+    } catch (err) {
+      // Fallback to IndexedDB
+      const db = await openDB();
+      const tx = db.transaction('stories', 'readonly');
+      const store = tx.objectStore('stories');
+      const stories = await store.getAll();
+      
+      return new Response(JSON.stringify({
+        error: false,
+        message: "Success (Offline Mode)",
+        listStory: stories
+      }));
+    }
+  }
+);
+
+// Cache gambar dengan fallback
 workbox.routing.registerRoute(
   ({request}) => request.destination === 'image',
-  new workbox.strategies.CacheFirst({
+  new workbox.strategies.NetworkFirst({
     cacheName: 'images-cache-' + CACHE_VERSION,
     plugins: [
-      new workbox.expiration.ExpirationPlugin({ maxEntries: 50 }),
+      new workbox.expiration.ExpirationPlugin({
+        maxEntries: 100,
+        maxAgeSeconds: 30 * 24 * 60 * 60, // 30 days
+      }),
+      {
+        handlerDidError: async () => {
+          return await caches.match('/images/placeholder.png') ||
+                 new Response(
+                   '<svg>...</svg>', 
+                   {headers: {'Content-Type': 'image/svg+xml'}}
+                 );
+        }
+      }
     ],
   })
 );

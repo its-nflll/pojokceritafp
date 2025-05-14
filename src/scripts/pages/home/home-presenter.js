@@ -13,16 +13,33 @@ const HomePresenter = {
       }
 
       container.innerHTML = '<div class="loading">Memuat cerita...</div>';
-      const result = await HomeModel.getStories();
       
-      if (result.error) {
-        container.innerHTML = `<div class="error-message">${result.message}</div>`;
-        return;
+      // Try from network first
+      try {
+        const result = await HomeModel.getStories();
+        
+        if (!result.error) {
+          HomeView.renderStories(result.listStory || [], { isOnline: true });
+          this.initForm();
+          this.initMiniMaps(result.listStory || []);
+          return;
+        }
+      } catch (err) {
+        console.log('Network fetch failed, falling back to offline data:', err);
       }
 
-      HomeView.renderStories(result.listStory || []);
-      this.initForm();
-      this.initMiniMaps(result.listStory || []);
+      // If network fails, get from IndexedDB
+      const offlineStories = await getAllStories();
+      if (offlineStories && offlineStories.length > 0) {
+        HomeView.renderStories(offlineStories, { isOnline: false });
+        this.initForm();
+        this.initMiniMaps(offlineStories);
+        container.insertAdjacentHTML('afterbegin', 
+          '<div class="offline-notice" style="background:#fff3cd;color:#856404;padding:0.75rem;border-radius:4px;margin-bottom:1rem;">Menampilkan data offline. Beberapa fitur mungkin terbatas.</div>'
+        );
+      } else {
+        container.innerHTML = `<div class="error-message">Tidak dapat memuat cerita. Anda sedang offline dan belum ada data tersimpan.</div>`;
+      }
     } catch (err) {
       container.innerHTML = `<div class="error-message">Error: ${err.message}</div>`;
     }

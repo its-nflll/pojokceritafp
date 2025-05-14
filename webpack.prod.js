@@ -49,6 +49,17 @@ module.exports = merge(common, {
     new CopyWebpackPlugin({
       patterns: [
         {
+          from: path.resolve(__dirname, 'src/public/'),
+          to: path.resolve(__dirname, 'dist/'),
+          globOptions: {
+            ignore: ['**/README.md'],
+          },
+        },
+        {
+          from: path.resolve(__dirname, 'src/public/images/'),
+          to: path.resolve(__dirname, 'dist/images/'),
+        },
+        {
           from: path.resolve(__dirname, 'src/public'),
           to: path.resolve(__dirname, 'dist'),
         },
