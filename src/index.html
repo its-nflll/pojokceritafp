@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html;charset=UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="view-transition" content="same-origin" />
+    <link rel="shortcut icon" href="favicon.png">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+    <link rel="manifest" href="manifest.json">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
+    <title>PojokCerita</title>
+  </head>
+  <body>
+    <a href="#main-content" class="skip-link">Skip to content</a>
+    <header>
+      <div class="main-header container">
+        <div class="brand-container">
+          <a class="brand-name" href="#/">PojokCerita</a>
+          <div class="shape"></div>
+        </div>
+        <nav id="navigation-drawer" class="navigation-drawer">
+          <ul id="nav-list" class="nav-list">
+            <li><a href="#/" id="nav-home"><i class="fa fa-home"></i> Beranda</a></li>
+            <li><a href="#/about" id="nav-about"><i class="fa fa-user"></i> About</a></li>
+            <li id="auth-nav">
+              <a href="#/login" id="nav-login"><i class="fa fa-sign-in-alt"></i> Login/Register</a>
+            </li>
+          </ul>
+        </nav>
+
+        <button id="drawer-button" class="drawer-button" aria-label="Buka navigasi">&#9776;</button>
+      </div>
+    </header>
+
+    <main id="main-content" class="main-content"></main>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+      // Mobile menu functionality
+      const drawerButton = document.getElementById('drawer-button');
+      const navigationDrawer = document.getElementById('navigation-drawer');
+      const navLinks = document.querySelectorAll('.nav-list a');
+
+      function toggleDrawer() {
+        navigationDrawer.classList.toggle('open');
+        drawerButton.setAttribute('aria-expanded', 
+          navigationDrawer.classList.contains('open'));
+      }
+
+      function closeDrawer() {
+        navigationDrawer.classList.remove('open');
+        drawerButton.setAttribute('aria-expanded', 'false');
+      }
+
+      drawerButton.addEventListener('click', toggleDrawer);
+      drawerButton.setAttribute('aria-expanded', 'false');
+
+      // Close menu when clicking a link
+      navLinks.forEach(link => {
+        link.addEventListener('click', closeDrawer);
+      });
+
+      // Close menu when clicking outside
+      document.addEventListener('click', (e) => {
+        if (navigationDrawer.classList.contains('open') &&
+            !navigationDrawer.contains(e.target) &&
+            !drawerButton.contains(e.target)) {
+          closeDrawer();
+        }
+      });
+
+      // Highlight active nav
+      window.addEventListener('hashchange', setActiveNav);
+      window.addEventListener('DOMContentLoaded', () => {
+        setActiveNav();
+        updateAuthNav();
+      });
+      function setActiveNav() {
+        document.querySelectorAll('.nav-list a').forEach(a => a.classList.remove('active'));
+        const hash = window.location.hash || '#/';
+        if (hash.startsWith('#/about')) document.getElementById('nav-about').classList.add('active');
+        else if (hash.startsWith('#/login')) document.getElementById('nav-login').classList.add('active');
+        else document.getElementById('nav-home').classList.add('active');
+      }
+
+      // Fungsi untuk menutup kamera
+      function closeCamera() {
+        const video = document.getElementById('camera-video');
+        if (video && video.srcObject) {
+          // Debug log
+          console.log('Menutup kamera...');
+          video.srcObject.getTracks().forEach(track => track.stop());
+          video.srcObject = null;
+        } else {
+          // Debug log
+          console.log('Video element atau srcObject tidak ditemukan');
+        }
+      }
+
+      // Event delegation untuk tombol tutup form (support klik pada child element)
+      document.addEventListener('click', function(e) {
+        // Cek jika tombol atau parent-nya yang diklik
+        const btn = e.target.closest('#close-form-btn');
+        if (btn) {
+          closeCamera();
+        }
+      });
+
+      // Anime.js animation
+      function random(min, max) {
+        return Math.random() * (max - min) + min;
+      }
+
+      function animateShape() {
+        anime({
+          targets: '.shape',
+          x: () => random(-100, 100),
+          y: () => random(-100, 100),
+          rotate: () => random(-180, 180),
+          duration: () => random(500, 1000),
+          complete: animateShape,
+          easing: 'easeInOutQuad'
+        });
+      }
+
+      // Start animation when DOM is loaded
+      document.addEventListener('DOMContentLoaded', () => {
+        animateShape();
+      });
+
+      // PWA: Register service worker
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', function() {
+          navigator.serviceWorker.register('/service-worker.js')
+            .then(function(reg) {
+              console.log('Service Worker registered!', reg);
+            })
+            .catch(function(err) {
+              console.error('Service Worker registration failed:', err);
+            });
+        });
+      }
+
+      // Function untuk logout
+      async function handleLogout() {
+        try {
+          // Remove service worker registration
+          const registration = await navigator.serviceWorker.getRegistration();
+          if (registration) {
+            const subscription = await registration.pushManager.getSubscription();
+            if (subscription) {
+              await subscription.unsubscribe();
+            }
+          }
+          
+          // Clear storage
+          localStorage.clear();
+          
+          // Redirect and update nav
+          window.location.hash = '#/login';
+          updateAuthNav();
+          
+        } catch (err) {
+          console.error('Logout error:', err);
+          // Fallback: minimal clear storage dan redirect
+          localStorage.clear();
+          window.location.hash = '#/login';
+        }
+      }
+
+      // Check login status and update nav
+      function updateAuthNav() {
+        const authNav = document.getElementById('auth-nav');
+        const token = localStorage.getItem('token');
+        const name = localStorage.getItem('name');
+
+        if (token && authNav) {
+          authNav.innerHTML = `
+            <div style="display:flex;align-items:center;gap:1rem;">
+              <span style="color:white;">Hi, ${name}</span>
+              <a href="#" id="nav-logout" style="color:white;"><i class="fa fa-sign-out-alt"></i> Logout</a>
+            </div>
+          `;
+
+          // Add logout handler
+          document.getElementById('nav-logout').addEventListener('click', (e) => {
+            e.preventDefault();
+            // Menggunakan fungsi global handleLogout
+            window.handleLogout();
+          });
+        } else if (authNav) {
+          authNav.innerHTML = `<a href="#/login" id="nav-login"><i class="fa fa-sign-in-alt"></i> Login/Register</a>`;
+        }
+      }
+
+      // Call on page load and after route changes
+      window.addEventListener('DOMContentLoaded', updateAuthNav);
+      window.addEventListener('hashchange', updateAuthNav);
+
+      // Routing sederhana dengan Not Found
+      function renderPage() {
+        const main = document.getElementById('main-content');
+        const hash = window.location.hash || '#/';
+        if (hash === '#/' || hash.startsWith('#/home')) {
+          // ...render home...
+        } else if (hash.startsWith('#/about')) {
+          // ...render about...
+        } else if (hash.startsWith('#/login')) {
+          // ...render login...
+        } else if (hash.startsWith('#/add')) {
+          // ...render tambah cerita...
+        } else {
+          // Not Found
+          main.innerHTML = `
+            <section class="not-found" style="text-align:center;padding:2rem;">
+              <h2>404 - Halaman Tidak Ditemukan</h2>
+              <p>Alamat yang Anda tuju tidak tersedia.</p>
+              <a href="#/" style="color:#1b4636;text-decoration:underline;">Kembali ke Beranda</a>
+            </section>
+          `;
+        }
+      }
+
+      window.addEventListener('hashchange', renderPage);
+      window.addEventListener('DOMContentLoaded', renderPage);
+
+      // Fungsi fetch dengan cache localStorage
+      // key: string unik untuk cache, url: endpoint API, options: fetch options, ttl: waktu cache dalam ms (default 5 menit)
+      async function fetchWithCache(key, url, options = {}, ttl = 5 * 60 * 1000) {
+        const now = Date.now();
+        const cached = localStorage.getItem(key);
+        if (cached) {
+          try {
+            const { data, timestamp } = JSON.parse(cached);
+            if (now - timestamp < ttl) {
+              // Data masih valid
+              return data;
+            }
+          } catch (e) {
+            // Jika cache corrupt, abaikan
+          }
+        }
+        // Fetch ke API
+        const response = await fetch(url, options);
+        if (!response.ok) throw new Error('API error');
+        const data = await response.json();
+        // Simpan ke cache
+        localStorage.setItem(key, JSON.stringify({ data, timestamp: now }));
+        return data;
+      }
+
+      // Contoh penggunaan:
+      // fetchWithCache('stories', 'https://api.example.com/stories')
+      //   .then(data => console.log(data));
+    </script>
+  </body>
+</html>
