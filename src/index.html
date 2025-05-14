@@ -19,6 +19,7 @@
           <a class="brand-name" href="#/">PojokCerita</a>
           <div class="shape"></div>
         </div>
+        <button id="drawer-button" class="drawer-button" aria-label="Buka navigasi">&#9776;</button>
         <nav id="navigation-drawer" class="navigation-drawer">
           <ul id="nav-list" class="nav-list">
             <li><a href="#/" id="nav-home"><i class="fa fa-home"></i> Beranda</a></li>
@@ -28,8 +29,6 @@
             </li>
           </ul>
         </nav>
-
-        <button id="drawer-button" class="drawer-button" aria-label="Buka navigasi">&#9776;</button>
       </div>
     </header>
 
@@ -45,11 +44,25 @@
         navigationDrawer.classList.toggle('open');
         drawerButton.setAttribute('aria-expanded', 
           navigationDrawer.classList.contains('open'));
+        
+        // Ubah ikon menu
+        if (navigationDrawer.classList.contains('open')) {
+          drawerButton.innerHTML = '&times;';
+          drawerButton.setAttribute('aria-label', 'Tutup navigasi');
+          document.body.style.overflow = 'hidden'; // Mencegah scroll saat menu terbuka
+        } else {
+          drawerButton.innerHTML = '&#9776;';
+          drawerButton.setAttribute('aria-label', 'Buka navigasi');
+          document.body.style.overflow = ''; // Mengembalikan scroll
+        }
       }
 
       function closeDrawer() {
         navigationDrawer.classList.remove('open');
         drawerButton.setAttribute('aria-expanded', 'false');
+        drawerButton.innerHTML = '&#9776;';
+        drawerButton.setAttribute('aria-label', 'Buka navigasi');
+        document.body.style.overflow = '';
       }
 
       drawerButton.addEventListener('click', toggleDrawer);
