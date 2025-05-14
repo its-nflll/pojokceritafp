@@ -36,6 +36,39 @@
     <main id="main-content" class="main-content"></main>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
+      // Mobile menu functionality
+      const drawerButton = document.getElementById('drawer-button');
+      const navigationDrawer = document.getElementById('navigation-drawer');
+      const navLinks = document.querySelectorAll('.nav-list a');
+
+      function toggleDrawer() {
+        navigationDrawer.classList.toggle('open');
+        drawerButton.setAttribute('aria-expanded', 
+          navigationDrawer.classList.contains('open'));
+      }
+
+      function closeDrawer() {
+        navigationDrawer.classList.remove('open');
+        drawerButton.setAttribute('aria-expanded', 'false');
+      }
+
+      drawerButton.addEventListener('click', toggleDrawer);
+      drawerButton.setAttribute('aria-expanded', 'false');
+
+      // Close menu when clicking a link
+      navLinks.forEach(link => {
+        link.addEventListener('click', closeDrawer);
+      });
+
+      // Close menu when clicking outside
+      document.addEventListener('click', (e) => {
+        if (navigationDrawer.classList.contains('open') &&
+            !navigationDrawer.contains(e.target) &&
+            !drawerButton.contains(e.target)) {
+          closeDrawer();
+        }
+      });
+
       // Highlight active nav
       window.addEventListener('hashchange', setActiveNav);
       window.addEventListener('DOMContentLoaded', () => {

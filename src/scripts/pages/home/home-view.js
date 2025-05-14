@@ -97,21 +97,40 @@ const HomeView = {
               <div class="form-group" style="margin-bottom:1rem;">
                 <label>Foto (opsional)</label>
                 <div style="display:flex;gap:0.5rem;margin-top:0.3rem;">
-                  <input type="file" id="story-photo" accept="image/*" style="flex:1;">
-                  <button type="button" id="open-camera-btn" style="${cameraButtonStyle}">
+                  <input type="file" 
+                         id="story-photo" 
+                         name="story-photo"
+                         accept="image/*" 
+                         style="flex:1;" 
+                         aria-label="Pilih file foto untuk cerita"
+                         title="Pilih file foto untuk cerita">
+                  <button type="button" 
+                          id="open-camera-btn" 
+                          style="${cameraButtonStyle}"
+                          aria-label="Buka kamera">
                     <i class="fa fa-camera"></i>
                     <span>Kamera</span>
                   </button>
                 </div>
                 <div id="camera-container" style="display:none;margin-top:0.8rem;">
-                  <video id="camera-video" style="width:100%;border-radius:8px;" autoplay playsinline></video>
-                  <button type="button" id="take-photo-btn" style="${cameraButtonStyle};width:100%;margin-top:0.5rem;">
+                  <video id="camera-video" 
+                         style="width:100%;border-radius:8px;max-height:300px;object-fit:contain;" 
+                         autoplay 
+                         playsinline
+                         aria-label="Preview kamera"
+                         title="Preview kamera"></video>
+                  <button type="button" 
+                          id="take-photo-btn" 
+                          style="${cameraButtonStyle};width:100%;margin-top:0.5rem;"
+                          aria-label="Ambil foto">
                     <i class="fa fa-camera"></i>
                     <span>Ambil Foto</span>
                   </button>
                   <canvas id="camera-canvas" style="display:none;"></canvas>
                 </div>
-                <img id="preview-photo" style="display:none;width:100%;margin-top:0.8rem;border-radius:8px;" alt="Preview foto">
+                <img id="preview-photo" 
+                     style="display:none;width:100%;max-height:300px;object-fit:contain;margin-top:0.8rem;border-radius:8px;" 
+                     alt="Preview foto yang dipilih">
               </div>
 
               <div class="form-group" style="margin-bottom:1rem;">

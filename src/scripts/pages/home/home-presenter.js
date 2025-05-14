@@ -80,9 +80,7 @@ const HomePresenter = {
         modal.style.display = 'none';
         this.closeCamera();
       }
-    });
-
-    // Camera handling with icon toggle
+    });    // Camera handling with icon toggle
     openCameraBtn?.addEventListener('click', async () => {
       try {
         if (cameraVideo.srcObject) {
@@ -91,21 +89,36 @@ const HomePresenter = {
           cameraContainer.style.display = 'none';
           openCameraBtn.innerHTML = '<i class="fa fa-camera"></i> <span>Kamera</span>';
         } else {
+          // Check if mediaDevices API is supported
+          if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            throw new Error('Browser Anda tidak mendukung akses kamera. Gunakan browser modern seperti Chrome atau Firefox.');
+          }
+
           // If camera is inactive, start it
           cameraContainer.style.display = 'block';
           previewPhoto.style.display = 'none';
           photoInput.value = '';
 
-          const stream = await navigator.mediaDevices.getUserMedia({ 
-            video: { 
-              facingMode: 'environment',
-              width: { ideal: 1280 },
-              height: { ideal: 720 }
-            } 
-          });
-          cameraVideo.srcObject = stream;
-          await cameraVideo.play();
-          openCameraBtn.innerHTML = '<i class="fa fa-camera-slash"></i> <span>Tutup Kamera</span>';
+          try {
+            const stream = await navigator.mediaDevices.getUserMedia({ 
+              video: { 
+                facingMode: 'environment',
+                width: { ideal: 1280 },
+                height: { ideal: 720 }
+              } 
+            });
+            
+            if (!stream) {
+              throw new Error('Tidak dapat mengakses kamera');
+            }
+
+            cameraVideo.srcObject = stream;
+            await cameraVideo.play();
+            openCameraBtn.innerHTML = '<i class="fa fa-camera-slash"></i> <span>Tutup Kamera</span>';
+          } catch (mediaError) {
+            console.error('Media error:', mediaError);
+            throw new Error('Gagal mengakses kamera: ' + (mediaError.message || 'Izin ditolak'));
+          }
         }
       } catch (err) {
         message.textContent = 'Tidak dapat mengakses kamera: ' + err.message;
@@ -209,16 +222,33 @@ const HomePresenter = {
       }
     });
   },
-
   closeCamera() {
     const video = document.getElementById('camera-video');
     const openCameraBtn = document.getElementById('open-camera-btn');
     const cameraContainer = document.getElementById('camera-container');
     
-    if (video && video.srcObject) {
-      video.srcObject.getTracks().forEach(track => track.stop());
-      video.srcObject = null;
-      cameraContainer.style.display = 'none';
+    try {
+      if (video && video.srcObject) {
+        const tracks = video.srcObject.getTracks();
+        tracks.forEach(track => {
+          track.stop();
+          video.srcObject.removeTrack(track);
+        });
+        video.srcObject = null;
+      }
+      
+      if (cameraContainer) {
+        cameraContainer.style.display = 'none';
+      }
+      
+      if (openCameraBtn) {
+        openCameraBtn.innerHTML = '<i class="fa fa-camera"></i> <span>Kamera</span>';
+      }
+    } catch (err) {
+      console.error('Error closing camera:', err);
+      // Fallback cleanup
+      if (video) video.srcObject = null;
+      if (cameraContainer) cameraContainer.style.display = 'none';
       if (openCameraBtn) {
         openCameraBtn.innerHTML = '<i class="fa fa-camera"></i> <span>Kamera</span>';
       }
