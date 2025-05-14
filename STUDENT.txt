@@ -1,2 +1,2 @@
-APP_URL=<https://its-nflll.github.io/pojokceritafp/>
+APP_URL=https://its-nflll.github.io/pojokceritafp/
 MAP_SERVICE_API_KEY=5aXozvBKRLllN8T5b6nq
