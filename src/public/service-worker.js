@@ -197,21 +197,49 @@ self.addEventListener('message', (event) => {
     const storyId = event.data.storyId;
     
     if (storyId) {
-      deleteStory(storyId)
-        .then(() => {
-          // Kirim pesan sukses ke client
-          event.ports[0].postMessage({
-            status: 'success',
-            message: 'Story deleted from IndexedDB'
+      // Coba hapus cerita (dengan pengambilan data terlebih dahulu untuk pastikan ada)
+      openDB()
+        .then(db => {
+          const tx = db.transaction(STORE_NAME, 'readonly');
+          const store = tx.objectStore(STORE_NAME);
+          return new Promise((resolve, reject) => {
+            const request = store.get(storyId);
+            request.onsuccess = () => {
+              if (request.result) {
+                resolve(true); // Cerita ditemukan
+              } else {
+                reject(new Error(`Story with ID ${storyId} not found`));
+              }
+            };
+            request.onerror = () => reject(request.error);
           });
         })
+        .then(() => deleteStory(storyId))
+        .then(() => {
+          console.log(`Story with ID ${storyId} successfully deleted from service worker`);
+          // Kirim pesan sukses ke client
+          if (event.ports && event.ports[0]) {
+            event.ports[0].postMessage({
+              status: 'success',
+              message: 'Story deleted from IndexedDB'
+            });
+          }
+        })
         .catch((error) => {
-          console.error('Error deleting story:', error);
-          event.ports[0].postMessage({
-            status: 'error',
-            message: error.message || 'Failed to delete story'
-          });
+          console.error('Error deleting story from service worker:', error);
+          // Kirim pesan error ke client
+          if (event.ports && event.ports[0]) {
+            event.ports[0].postMessage({
+              status: 'error',
+              message: error.message || 'Failed to delete story'
+            });
+          }
         });
+    } else if (event.ports && event.ports[0]) {
+      event.ports[0].postMessage({
+        status: 'error',
+        message: 'Invalid story ID'
+      });
     }
   }
 });

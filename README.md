@@ -7,6 +7,7 @@ Proyek ini adalah setup dasar untuk aplikasi web yang menggunakan webpack untuk 
 - [Getting Started](#getting-started)
 - [Scripts](#scripts)
 - [Project Structure](#project-structure)
+- [Mengakses Kamera di Development Mode](#mengakses-kamera-di-development-mode)
 
 ## Getting Started
 
@@ -32,17 +33,29 @@ Proyek ini adalah setup dasar untuk aplikasi web yang menggunakan webpack untuk 
   ```
   Script ini menjalankan webpack dalam mode production menggunakan konfigurasi `webpack.prod.js` dan menghasilkan sejumlah file build ke direktori `dist`.
 
-- Start Development Server:
+- Start Development Server (dengan HTTPS):
   ```shell
   npm run start-dev
   ```
-  Script ini menjalankan server pengembangan webpack dengan fitur live reload dan mode development sesuai konfigurasi di`webpack.dev.js`.
+  Script ini menjalankan server pengembangan webpack dengan HTTPS dan fitur live reload. HTTPS diaktifkan secara default untuk mendukung akses kamera.
 
-- Serve:
+- Start Development Server (port alternatif):
+  ```shell
+  npm run start-alt
+  ```
+  Sama seperti `start-dev` tapi menggunakan port 8080 jika port 9000 sudah digunakan.
+
+- Serve (untuk testing build production):
   ```shell
   npm run serve
   ```
   Script ini menggunakan [`http-server`](https://www.npmjs.com/package/http-server) untuk menyajikan konten dari direktori `dist`.
+
+- Serve dengan HTTPS:
+  ```shell
+  npm run serve-https
+  ```
+  Menjalankan http-server dengan HTTPS untuk mendukung akses kamera di build production. Memerlukan sertifikat SSL di folder `cert/`.
 
 ## Project Structure
 
@@ -66,3 +79,34 @@ starter-project/
 ├── webpack.dev.js          # Webpack development configuration
 └── webpack.prod.js         # Webpack production configuration
 ```
+
+## Mengakses Kamera di Development Mode
+
+### Metode yang Disarankan
+
+Server development sekarang **dikonfigurasi dengan HTTPS secara default**, yang harus memungkinkan akses kamera bekerja tanpa konfigurasi tambahan. Saat pertama kali mengakses, browser akan menampilkan peringatan tentang sertifikat self-signed - cukup klik "Proceed/Lanjutkan" untuk melanjutkan.
+
+### Jika Masih Menghadapi Masalah
+
+Jika kamera masih tidak berfungsi, coba salah satu dari opsi berikut:
+
+1. **Gunakan browser desktop yang berbeda**: Chrome atau Firefox terbaru umumnya memiliki dukungan kamera terbaik.
+
+2. **Akses dari URL yang berbeda**:
+   - Coba dengan `localhost` daripada IP
+   - Contoh: `https://localhost:9000` daripada `https://192.168.x.x:9000`
+
+3. **Gunakan port alternatif**:
+   ```shell
+   npm run start-alt
+   ```
+   Ini menjalankan server di port 8080 sebagai alternatif.
+
+4. **Konfigurasi Chrome untuk development**:
+   - Buka `chrome://flags/#unsafely-treat-insecure-origin-as-secure`
+   - Tambahkan URL development server Anda (mis: `http://localhost:9000` atau `http://192.168.x.x:9000`)
+   - Aktifkan flag dan restart browser
+
+### Alternatif Untuk Upload Gambar
+
+Aplikasi menyediakan alternatif untuk menggunakan file upload jika kamera tidak tersedia. Lihat link "mengupload foto" yang tersedia di aplikasi.

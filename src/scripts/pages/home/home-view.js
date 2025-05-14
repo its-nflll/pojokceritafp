@@ -1,4 +1,4 @@
-import { saveStory, getAllStories, deleteStory, saveImage, getImage } from '../../utils/idb.js';
+import { saveStory, getAllStories, deleteStory, saveImage, getImage, getTotalStories } from '../../utils/idb.js';
 
 const HomeView = {
   async renderStories(stories, { isOnline = true } = {}) {
@@ -140,11 +140,15 @@ const HomeView = {
                   </div>
                   <div id="camera-container" style="display:none;margin-top:0.8rem;">
                     <video id="camera-video" 
-                           style="width:100%;border-radius:8px;max-height:300px;object-fit:contain;" 
-                           autoplay 
-                           playsinline
+                           style="width:100%;border-radius:8px;max-height:300px;object-fit:contain;background-color:#f5f5f5;" 
+                           autoplay
                            aria-label="Preview kamera"
                            title="Preview kamera"></video>
+                    <div id="camera-fallback" style="display:none;text-align:center;padding:20px;background-color:#f5f5f5;border-radius:8px;color:#666;">
+                      <i class="fa fa-camera" style="font-size:2rem;margin-bottom:10px;color:#888;"></i>
+                      <p style="margin:5px 0;">Kamera tidak tersedia</p>
+                      <small>Gunakan opsi upload file sebagai alternatif</small>
+                    </div>
                     <button type="button" 
                             id="take-photo-btn" 
                             style="${cameraButtonStyle};width:100%;margin-top:0.5rem;"
@@ -380,37 +384,59 @@ const HomeView = {
           if (deleteBtn) {
             if (confirm('Apakah Anda yakin ingin menghapus cerita ini dari penyimpanan offline?')) {
               const id = deleteBtn.getAttribute('data-id');
+              const storyId = isNaN(id) ? id : Number(id);
+              const liElement = deleteBtn.closest('li');
+              
               try {
-                // Delete from IndexedDB
-                await deleteStory(isNaN(id) ? id : Number(id));
+                // Tampilkan indikator loading
+                deleteBtn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Menghapus...';
+                deleteBtn.disabled = true;
                 
-                // Also notify service worker to delete the story
+                // Delete from IndexedDB
+                await deleteStory(storyId);
+                
+                // Also notify service worker to delete the story if available
                 if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
-                  // Create a message channel
-                  const messageChannel = new MessageChannel();
-                  
-                  // Set up a promise to handle the response
-                  const serviceWorkerDeletePromise = new Promise((resolve, reject) => {
-                    messageChannel.port1.onmessage = (event) => {
-                      if (event.data.status === 'success') {
-                        resolve(event.data);
-                      } else {
-                        reject(new Error(event.data.message || 'Failed to delete from service worker'));
-                      }
-                    };
-                  });
-                  
-                  // Send the message to the service worker
-                  navigator.serviceWorker.controller.postMessage({
-                    action: 'DELETE_STORY',
-                    storyId: isNaN(id) ? id : Number(id)
-                  }, [messageChannel.port2]);
-                  
-                  // Wait for the response
-                  await serviceWorkerDeletePromise;
+                  try {
+                    // Create a message channel
+                    const messageChannel = new MessageChannel();
+                    
+                    // Set up a promise to handle the response
+                    const serviceWorkerDeletePromise = new Promise((resolve, reject) => {
+                      // Set timeout for response
+                      const timeout = setTimeout(() => {
+                        reject(new Error('Service worker response timeout'));
+                      }, 3000);
+                      
+                      messageChannel.port1.onmessage = (event) => {
+                        clearTimeout(timeout);
+                        if (event.data && event.data.status === 'success') {
+                          resolve(event.data);
+                        } else {
+                          reject(new Error(event.data.message || 'Failed to delete from service worker'));
+                        }
+                      };
+                    });
+                    
+                    // Send the message to the service worker
+                    navigator.serviceWorker.controller.postMessage({
+                      action: 'DELETE_STORY',
+                      storyId: storyId
+                    }, [messageChannel.port2]);
+                    
+                    // Wait for response with timeout fallback
+                    await Promise.race([
+                      serviceWorkerDeletePromise,
+                      new Promise(resolve => setTimeout(resolve, 3000, { status: 'timeout', message: 'Continuing without service worker response' }))
+                    ]);
+                  } catch (swError) {
+                    console.warn('Service worker deletion error (continuing):', swError);
+                    // Continue even if service worker communication fails
+                  }
                 }
                 
-                deleteBtn.closest('li').remove();
+                // Remove from UI
+                liElement.remove();
                 
                 const favList = document.getElementById('fav-list');
                 if (favList.children.length === 0) {
@@ -418,23 +444,29 @@ const HomeView = {
                 }
                 
                 // Update total count
-                const total = await getTotalStories();
-                const statsEl = document.getElementById('fav-stats');
-                statsEl.textContent = `Menampilkan ${Math.min(currentPage * 5, total)} dari ${total} cerita`;
-                
-                // Show notification
-                if (window.Notification && Notification.permission === 'granted') {
-                  navigator.serviceWorker.ready.then(registration => {
-                    registration.showNotification('PojokCerita', {
-                      body: 'Cerita berhasil dihapus dari penyimpanan offline',
-                      icon: '/images/logo.png',
-                      badge: '/favicon.png'
+                try {
+                  const total = await getTotalStories();
+                  const statsEl = document.getElementById('fav-stats');
+                  if (statsEl) {
+                    statsEl.textContent = `Menampilkan ${Math.min(currentPage * 5, total)} dari ${total} cerita`;
+                  }
+                  
+                  // Show notification
+                  if (window.Notification && Notification.permission === 'granted') {
+                    navigator.serviceWorker.ready.then(registration => {
+                      registration.showNotification('PojokCerita', {
+                        body: 'Cerita berhasil dihapus dari penyimpanan offline',
+                        icon: '/images/logo.png',
+                        badge: '/favicon.png'
+                      });
                     });
-                  });
+                  }
+                } catch (countError) {
+                  console.error('Error updating stats:', countError);
                 }
               } catch (error) {
                 console.error('Failed to delete story:', error);
-                deleteBtn.closest('li').innerHTML = '<div style="color:#d32f2f;padding:1rem;">Gagal menghapus cerita</div>';
+                liElement.innerHTML = '<div style="color:#d32f2f;padding:1rem;">Gagal menghapus cerita. Coba lagi nanti.</div>';
               }
             }
           }

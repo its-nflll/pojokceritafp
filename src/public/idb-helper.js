@@ -28,25 +28,67 @@ function openDB() {
 async function deleteStory(id) {
   const db = await openDB();
   return new Promise((resolve, reject) => {
-    const tx = db.transaction(STORE_NAME, 'readwrite');
-    const store = tx.objectStore(STORE_NAME);
-    
-    // Delete the story and its associated image if exists
-    store.get(id).onsuccess = (event) => {
-      const story = event.target.result;
-      if (story && story.photoUrl) {
-        try {
-          const imageTx = db.transaction('image-cache', 'readwrite');
-          imageTx.objectStore('image-cache').delete(story.photoUrl);
-        } catch (e) {
-          console.error('Error deleting associated image:', e);
-        }
+    try {
+      // Validasi ID
+      if (!id) {
+        reject(new Error('Story ID is required'));
+        return;
       }
-    };
-    
-    store.delete(id);
-    tx.oncomplete = () => resolve();
-    tx.onerror = () => reject(tx.error);
+
+      const tx = db.transaction(STORE_NAME, 'readwrite');
+      tx.onerror = (event) => {
+        console.error('Transaction error:', event);
+        reject(new Error('Transaction failed'));
+      };
+      
+      const store = tx.objectStore(STORE_NAME);
+      
+      // Periksa apakah cerita ada sebelum menghapus
+      const getRequest = store.get(id);
+      
+      getRequest.onsuccess = (event) => {
+        const story = event.target.result;
+        
+        if (!story) {
+          // Jika cerita tidak ditemukan, tetap selesaikan promise
+          console.warn(`Story with ID ${id} not found, skipping delete operation`);
+          resolve();
+          return;
+        }
+        
+        // Hapus gambar terkait jika ada
+        if (story.photoUrl) {
+          try {
+            const imageTx = db.transaction('image-cache', 'readwrite');
+            imageTx.objectStore('image-cache').delete(story.photoUrl);
+          } catch (e) {
+            console.error('Error deleting associated image:', e);
+            // Lanjutkan meskipun gagal menghapus gambar
+          }
+        }
+        
+        // Hapus cerita
+        const deleteRequest = store.delete(id);
+        
+        deleteRequest.onsuccess = () => {
+          console.log(`Successfully deleted story with ID: ${id}`);
+          resolve();
+        };
+        
+        deleteRequest.onerror = (event) => {
+          console.error(`Error deleting story with ID ${id}:`, event.target.error);
+          reject(event.target.error);
+        };
+      };
+      
+      getRequest.onerror = (event) => {
+        console.error(`Error retrieving story with ID ${id}:`, event.target.error);
+        reject(event.target.error);
+      };
+    } catch (error) {
+      console.error('Unexpected error in deleteStory:', error);
+      reject(error);
+    }
   });
 }
 
