@@ -29,8 +29,11 @@ const NotificationHelper = {
     }
 
     try {
-      const registration = await navigator.serviceWorker.register('/public/service-worker.js');
-      console.log('Service worker registered');
+      // Menggunakan path relatif terhadap scope saat ini
+      // Ini memastikan service worker bekerja baik di localhost maupun GitHub Pages
+      const swPath = new URL('/service-worker.js', window.location.href).pathname;
+      const registration = await navigator.serviceWorker.register(swPath);
+      console.log('Service worker registered with path:', swPath);
       return registration;
     } catch (error) {
       console.error('Registrasi service worker gagal.', error);

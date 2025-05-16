@@ -8,7 +8,9 @@
     "start-https": "webpack serve --config webpack.dev.js --https",
     "start-alt": "webpack serve --config webpack.dev.js --port 8080 --https",
     "serve": "http-server dist",
-    "serve-https": "http-server dist --ssl --cert ./cert/cert.pem --key ./cert/key.pem -p 9000"
+    "serve-https": "http-server dist --ssl --cert ./cert/cert.pem --key ./cert/key.pem -p 9000",
+    "predeploy": "npm run build",
+    "deploy": "gh-pages -d dist"
   },
   "keywords": [],
   "author": "YOUR_NAME <yourmail@mail.com>",
@@ -19,6 +21,7 @@
     "clean-webpack-plugin": "^4.0.0",
     "copy-webpack-plugin": "^13.0.0",
     "css-loader": "^7.1.2",
+    "gh-pages": "^5.0.0",
     "html-webpack-plugin": "^5.6.3",
     "http-server": "^14.1.1",
     "mini-css-extract-plugin": "^2.9.2",

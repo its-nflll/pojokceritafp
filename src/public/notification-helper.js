@@ -11,8 +11,8 @@ const NotificationHelper = {
       title: 'Cerita Baru Ditambahkan',
       options: {
         body: `"${data.title}" baru saja ditambahkan!`,
-        icon: '/images/icons/icon-192x192.png',
-        badge: '/images/icons/badge-72x72.png',
+        icon: './images/icons/icon-192x192.png',
+        badge: './images/icons/badge-72x72.png',
         data: {
           url: `#/detail/${data.id}`
         }

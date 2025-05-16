@@ -22,8 +22,8 @@ self.addEventListener('push', async function(event) {
     title: 'PojokCerita',
     options: {
       body: 'Ada notifikasi baru!',
-      icon: '/images/logo.png',
-      badge: '/favicon.png',
+      icon: './images/logo.png',
+      badge: './favicon.png',
       data: {}
     }
   };
@@ -179,7 +179,7 @@ workbox.routing.registerRoute(
       }),
       {
         handlerDidError: async () => {
-          return await caches.match('/images/placeholder.png') ||
+          return await caches.match('./images/placeholder.png') ||
                  new Response(
                    '<svg>...</svg>', 
                    {headers: {'Content-Type': 'image/svg+xml'}}
@@ -199,7 +199,7 @@ workbox.routing.setDefaultHandler(defaultHandler);
 workbox.routing.setCatchHandler(async ({event}) => {
   // Fallback ke index.html hanya untuk navigasi dokumen
   if (event.request.destination === 'document') {
-    return caches.match('/index.html');
+    return caches.match('./index.html');
   }
   return Response.error();
 });
@@ -281,8 +281,8 @@ self.addEventListener('message', async (event) => {
       if (isSubscribed) {
         await self.registration.showNotification('PojokCerita', {
           body: 'Cerita berhasil dihapus dari penyimpanan offline',
-          icon: '/images/logo.png',
-          badge: '/favicon.png'
+          icon: './images/logo.png',
+          badge: './favicon.png'
         });
       } else {
         console.log('[Service Worker] User tidak berlangganan, tidak menampilkan notifikasi');

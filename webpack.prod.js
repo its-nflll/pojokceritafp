@@ -5,6 +5,13 @@ const MiniCssExtractPlugin = require('mini-css-extract-plugin');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 const CopyWebpackPlugin = require('copy-webpack-plugin');
 const path = require('path');
+const fs = require('fs');
+
+// Buat file .nojekyll kosong jika belum ada
+const nojekyllPath = path.resolve(__dirname, '.nojekyll');
+if (!fs.existsSync(nojekyllPath)) {
+  fs.writeFileSync(nojekyllPath, '');
+}
 
 module.exports = merge(common, {
   mode: 'production',
@@ -52,16 +59,20 @@ module.exports = merge(common, {
           from: path.resolve(__dirname, 'src/public/'),
           to: path.resolve(__dirname, 'dist/'),
           globOptions: {
-            ignore: ['**/README.md'],
+            ignore: ['**/README.md', '**/service-worker.js'],
           },
+        },
+        {
+          from: path.resolve(__dirname, 'src/public/service-worker.js'),
+          to: path.resolve(__dirname, 'dist/service-worker.js'),
         },
         {
           from: path.resolve(__dirname, 'src/public/images/'),
           to: path.resolve(__dirname, 'dist/images/'),
         },
         {
-          from: path.resolve(__dirname, 'src/public'),
-          to: path.resolve(__dirname, 'dist'),
+          from: path.resolve(__dirname, '.nojekyll'),
+          to: path.resolve(__dirname, 'dist/.nojekyll'),
         },
       ],
     }),
