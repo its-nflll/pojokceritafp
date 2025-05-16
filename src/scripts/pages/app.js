@@ -4,7 +4,16 @@ import UrlParser from '../routes/url-parser.js';
 const App = {
   async renderPage() {
     const url = UrlParser.parseActiveUrlWithoutCombiner();
-    const page = routes[url] || routes['/'];
+    
+    // Cek apakah URL ada di routes, jika tidak gunakan halaman 404
+    let page;
+    
+    if (UrlParser.isKnownRoute(url, routes)) {
+      page = routes[url];
+    } else {
+      page = routes['/404'];
+    }
+    
     let pageInstance, html;
 
     // Gunakan View Transitions API jika didukung

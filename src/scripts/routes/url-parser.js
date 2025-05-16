@@ -49,7 +49,25 @@ export function parsePathname(pathname) {
 const UrlParser = {
   parseActiveUrlWithoutCombiner() {
     const hash = window.location.hash.slice(1).toLowerCase() || '/';
-    return hash.split('/')[1] ? `/${hash.split('/')[1]}` : '/';
+    
+    // Ambil bagian pertama dari URL (setelah #)
+    // Jika URL kosong atau hanya "#", kembalikan "/"
+    if (!hash || hash === '/') {
+      return '/';
+    }
+    
+    // Ekstrak bagian pertama dari path
+    const segments = hash.split('/');
+    if (segments.length > 1 && segments[1]) {
+      return `/${segments[1]}`;
+    }
+    
+    return '/';
+  },
+  
+  // Tambahkan metode untuk memeriksa apakah URL valid
+  isKnownRoute(url, availableRoutes) {
+    return Object.keys(availableRoutes).includes(url);
   }
 };
 

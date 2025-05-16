@@ -42,9 +42,9 @@
       "label": "Desktop screenshot"
     },
     {
-      "src": "screenshots/mobile.png",
+      "src": "screenshots/mobile.jpg",
       "sizes": "375x667",
-      "type": "image/png",
+      "type": "image/jpeg",
       "label": "Mobile screenshot"
     }
   ]

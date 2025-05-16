@@ -3,6 +3,8 @@ import '../styles/styles.css';
 
 import App from './pages/app.js';
 import AuthHelper from './utils/auth-helper.js';
+import UrlParser from './routes/url-parser.js';
+import routes from './routes/routes.js';
 
 // Global function untuk logout
 window.handleLogout = async () => {
@@ -13,9 +15,10 @@ window.handleLogout = async () => {
   }
 };
 
-window.addEventListener('DOMContentLoaded', () => {
+// Fungsi untuk menangani perubahan URL
+const handleRouteChange = () => {
   App.renderPage();
-});
-window.addEventListener('hashchange', () => {
-  App.renderPage();
-});
+};
+
+window.addEventListener('DOMContentLoaded', handleRouteChange);
+window.addEventListener('hashchange', handleRouteChange);
