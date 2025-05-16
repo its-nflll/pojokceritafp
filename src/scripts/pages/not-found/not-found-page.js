@@ -8,17 +8,19 @@ const renderNotFoundPage = () => {
         <div class="not-found-image">
           <img src="./images/404.png" alt="Halaman tidak ditemukan" onerror="this.onerror=null; this.src='./images/logo.png';">
         </div>
-        <a href="#/" class="btn btn-primary">Kembali ke Beranda</a>
+        <a href="/" class="btn btn-primary" id="back-to-home">Kembali ke Beranda</a>
       </div>
     </section>
   `;
   
-  // Pastikan event listener untuk tombol kembali bekerja
-  const backButton = main.querySelector('.btn-primary');
+  // Perbaikan: Gunakan dua metode untuk memastikan tombol kembali bekerja
+  const backButton = main.querySelector('#back-to-home');
   if (backButton) {
     backButton.addEventListener('click', (e) => {
       e.preventDefault();
-      window.location.hash = '#/';
+      // Gunakan location.href untuk navigasi langsung ke root
+      const baseUrl = window.location.origin;
+      window.location.href = baseUrl;
     });
   }
 };
