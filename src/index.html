@@ -361,46 +361,73 @@
       // PWA: Register service worker
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', function() {
-          navigator.serviceWorker.register('/service-worker.js')
+          // Gunakan path relatif terhadap lokasi saat ini untuk mendukung GitHub Pages
+          const swPath = new URL('service-worker.js', window.location.href).pathname;
+          navigator.serviceWorker.register(swPath)
             .then(function(reg) {
-              console.log('Service Worker registered!', reg);
+              console.log('Service Worker registered with path:', swPath);
               // Init subscribe tombol setelah service worker terdaftar
               initSubscribeButton(reg);
             })
             .catch(function(err) {
               console.error('Service Worker registration failed:', err);
+              // Tampilkan pesan error ke pengguna
+              alert('Gagal mendaftarkan service worker. Fitur notifikasi mungkin tidak berfungsi.');
             });
         });
       }
 
-      // Fungsi untuk mendapatkan public key dari server
-      // Untuk demo/submission, kita gunakan key statis (ganti dengan key asli untuk produksi)
-      function getPublicKey() {
-        // Public key VAPID dalam format URL-safe base64
-        const publicKey = 'BEl62iUYgUivxIkv69yViEuiBIa-Ib9-SkvMeAtA3LFgDzkrxZJjSgSnfckjBJuBkr3qBUYIHBQFLXYp5Nksh8U';
-        
-        // Konversi ke Uint8Array untuk digunakan dengan pushManager
-        function urlBase64ToUint8Array(base64String) {
-          const padding = '='.repeat((4 - base64String.length % 4) % 4);
-          const base64 = (base64String + padding)
-            .replace(/\-/g, '+')
-            .replace(/_/g, '/');
-
-          const rawData = window.atob(base64);
-          const outputArray = new Uint8Array(rawData.length);
-
-          for (let i = 0; i < rawData.length; ++i) {
-            outputArray[i] = rawData.charCodeAt(i);
+      // Fungsi untuk mendapatkan status notifikasi
+      async function getNotificationStatus() {
+        try {
+          // Cek apakah browser mendukung notifikasi
+          if (!('Notification' in window)) {
+            return { supported: false, permission: 'not-supported' };
           }
-          return outputArray;
+          
+          // Cek apakah service worker tersedia
+          if (!('serviceWorker' in navigator)) {
+            return { supported: true, permission: Notification.permission, serviceWorker: false };
+          }
+          
+          // Cek apakah service worker terdaftar
+          const registration = await navigator.serviceWorker.getRegistration();
+          if (!registration) {
+            return { 
+              supported: true, 
+              permission: Notification.permission, 
+              serviceWorker: false 
+            };
+          }
+          
+          // Cek apakah sudah subscribe
+          const subscription = await registration.pushManager.getSubscription();
+          
+          return {
+            supported: true,
+            permission: Notification.permission,
+            serviceWorker: true,
+            subscribed: !!subscription,
+            subscription: subscription
+          };
+        } catch (err) {
+          console.error('Error saat mengecek status notifikasi:', err);
+          return { 
+            supported: true, 
+            permission: Notification.permission, 
+            error: err.message 
+          };
         }
-
-        return urlBase64ToUint8Array(publicKey);
       }
 
       // Fungsi untuk mengecek apakah sudah subscribe
       async function checkSubscription(registration) {
         try {
+          if (!registration) {
+            console.error('Registration tidak valid saat checkSubscription');
+            return;
+          }
+          
           const subscription = await registration.pushManager.getSubscription();
           const mobileButton = document.getElementById('subscribe-button');
           const desktopButton = document.getElementById('desktop-subscribe-button');
@@ -426,6 +453,8 @@
             document.querySelectorAll('.notification-button i').forEach(icon => {
               icon.className = 'fa fa-bell-slash';
             });
+            
+            console.log('Status: Berlangganan aktif');
           } else {
             // Jika belum subscribe
             buttons.forEach(btn => {
@@ -440,29 +469,84 @@
             document.querySelectorAll('.notification-button i').forEach(icon => {
               icon.className = 'fa fa-bell';
             });
+            
+            console.log('Status: Belum berlangganan');
           }
         } catch (err) {
           console.error('Error saat cek subscription:', err);
+          
+          // Reset tombol ke status default (belum subscribe)
+          const buttons = [
+            document.getElementById('subscribe-button'), 
+            document.getElementById('desktop-subscribe-button')
+          ].filter(Boolean);
+          
+          const textElements = [
+            document.getElementById('mobile-notification-text'), 
+            document.getElementById('desktop-notification-text')
+          ].filter(Boolean);
+          
+          buttons.forEach(btn => {
+            if (btn) btn.classList.remove('subscribed');
+          });
+          
+          textElements.forEach(text => {
+            if (text) text.textContent = 'Aktifkan Notifikasi';
+          });
+          
+          document.querySelectorAll('.notification-button i').forEach(icon => {
+            icon.className = 'fa fa-bell';
+          });
         }
       }
 
       // Fungsi untuk subscribe ke push notification
       async function subscribeToPush(registration) {
         try {
+          // Minta izin notifikasi terlebih dahulu
+          if (Notification.permission !== 'granted') {
+            const permission = await Notification.requestPermission();
+            if (permission !== 'granted') {
+              throw new Error('Izin notifikasi ditolak');
+            }
+          }
+          
+          // Gunakan VAPID key dari config
+          const publicKey = 'BN7-r0Svv7CsTi18-OPYtJLVW0bfuZ1x1UtrygczKjennA_qs7OWmgOewcuYSYF3Gc_mPbqsDh2YoGCDPL0RxDQ';
+          
           const subscribeOptions = {
             userVisibleOnly: true,
-            applicationServerKey: getPublicKey()
+            applicationServerKey: urlBase64ToUint8Array(publicKey)
           };
+
+          console.log('Mencoba subscribe dengan options:', {
+            userVisibleOnly: true,
+            applicationServerKey: '[VAPID_KEY]'
+          });
 
           const subscription = await registration.pushManager.subscribe(subscribeOptions);
           console.log('User berhasil berlangganan:', subscription);
           
-          // Ideally you would send the subscription to your server here
-          // await fetch('/api/save-subscription', {
-          //   method: 'POST',
-          //   headers: { 'Content-Type': 'application/json' },
-          //   body: JSON.stringify(subscription)
-          // });
+          // Kirim subscription ke server jika user sudah login
+          const token = localStorage.getItem('token');
+          if (token) {
+            try {
+              const response = await fetch('https://story-api.dicoding.dev/v1/push-msg/subscribe', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify(subscription)
+              });
+              
+              const data = await response.json();
+              console.log('Hasil kirim subscription ke server:', data);
+            } catch (serverErr) {
+              console.error('Gagal mengirim subscription ke server:', serverErr);
+              // Tetap lanjutkan meskipun gagal mengirim ke server
+            }
+          }
 
           // Update status tombol
           checkSubscription(registration);
@@ -483,38 +567,100 @@
           } else {
             alert('Gagal mengaktifkan notifikasi. ' + err.message);
           }
+          throw err; // Re-throw untuk penanganan di caller
         }
+      }
+      
+      // Fungsi helper untuk konversi VAPID key
+      function urlBase64ToUint8Array(base64String) {
+        const padding = '='.repeat((4 - base64String.length % 4) % 4);
+        const base64 = (base64String + padding)
+          .replace(/\-/g, '+')
+          .replace(/_/g, '/');
+
+        const rawData = window.atob(base64);
+        const outputArray = new Uint8Array(rawData.length);
+
+        for (let i = 0; i < rawData.length; ++i) {
+          outputArray[i] = rawData.charCodeAt(i);
+        }
+        return outputArray;
       }
 
       // Fungsi untuk unsubscribe dari push notification
       async function unsubscribeFromPush(registration) {
         try {
+          if (!registration) {
+            throw new Error('Service worker registration tidak valid');
+          }
+          
           const subscription = await registration.pushManager.getSubscription();
           
-          if (subscription) {
-            await subscription.unsubscribe();
-            console.log('User berhasil berhenti berlangganan');
-            
-            // Ideally you would send request to remove subscription from your server
-            // await fetch('/api/remove-subscription', {
-            //   method: 'POST',
-            //   headers: { 'Content-Type': 'application/json' },
-            //   body: JSON.stringify(subscription)
-            // });
-            
+          if (!subscription) {
+            console.log('Tidak ada subscription yang aktif');
             checkSubscription(registration);
-            
-            // Show success message
-            alert('Notifikasi berhasil dinonaktifkan!');
-            
-            // Tutup drawer setelah unsubscribe (jika drawer terbuka)
-            if (navigationDrawer.classList.contains('open')) {
-              closeDrawer();
+            return;
+          }
+          
+          // Simpan endpoint sebelum unsubscribe untuk dikirim ke server
+          const endpoint = subscription.endpoint;
+          
+          // Unsubscribe dari push manager
+          const result = await subscription.unsubscribe();
+          console.log('User berhasil berhenti berlangganan:', result);
+          
+          // Kirim permintaan unsubscribe ke server jika user sudah login
+          const token = localStorage.getItem('token');
+          if (token) {
+            try {
+              const response = await fetch('https://story-api.dicoding.dev/v1/push-msg/unsubscribe', {
+                method: 'DELETE',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ endpoint })
+              });
+              
+              const data = await response.json();
+              console.log('Hasil unsubscribe dari server:', data);
+            } catch (serverErr) {
+              console.error('Gagal mengirim unsubscribe ke server:', serverErr);
+              // Tetap lanjutkan meskipun gagal mengirim ke server
             }
+          }
+          
+          // Update status tombol
+          checkSubscription(registration);
+          
+          // Show success message
+          alert('Notifikasi berhasil dinonaktifkan!');
+          
+          // Tutup drawer setelah unsubscribe (jika drawer terbuka)
+          if (navigationDrawer.classList.contains('open')) {
+            closeDrawer();
           }
         } catch (err) {
           console.error('Gagal berhenti berlangganan:', err);
           alert('Gagal menonaktifkan notifikasi. ' + err.message);
+          
+          // Force update UI ke status default
+          const buttons = [
+            document.getElementById('subscribe-button'), 
+            document.getElementById('desktop-subscribe-button')
+          ].filter(Boolean);
+          
+          buttons.forEach(btn => {
+            if (btn) btn.classList.remove('subscribed');
+          });
+          
+          document.querySelectorAll('#mobile-notification-text, #desktop-notification-text').forEach(text => {
+            if (text) text.textContent = 'Aktifkan Notifikasi';
+          });
+          
+          document.querySelectorAll('.notification-button i').forEach(icon => {
+            icon.className = 'fa fa-bell';
+          });
         }
       }
 
@@ -523,30 +669,65 @@
         const mobileButton = document.getElementById('subscribe-button');
         const desktopButton = document.getElementById('desktop-subscribe-button');
         
+        if (!registration) {
+          console.error('Registration tidak valid saat initSubscribeButton');
+          
+          // Set handler untuk menampilkan pesan error jika tombol diklik
+          const errorHandler = () => {
+            alert('Notifikasi tidak dapat diaktifkan. Service worker tidak terdaftar.');
+          };
+          
+          if (mobileButton) mobileButton.addEventListener('click', errorHandler);
+          if (desktopButton) desktopButton.addEventListener('click', errorHandler);
+          
+          return;
+        }
+        
         // Periksa status subscription saat ini
         checkSubscription(registration);
         
         // Fungsi handler untuk klik tombol
         const handleSubscribeClick = async () => {
-          const currentSubscription = await registration.pushManager.getSubscription();
-          
-          if (currentSubscription) {
-            // Jika sudah subscribe, unsubscribe
-            unsubscribeFromPush(registration);
-          } else {
-            // Jika belum subscribe, subscribe
-            subscribeToPush(registration);
+          try {
+            // Periksa izin notifikasi terlebih dahulu
+            if (Notification.permission === 'denied') {
+              alert('Izin notifikasi ditolak. Silakan aktifkan izin notifikasi di pengaturan browser Anda.');
+              return;
+            }
+            
+            const currentSubscription = await registration.pushManager.getSubscription();
+            
+            if (currentSubscription) {
+              // Jika sudah subscribe, unsubscribe
+              unsubscribeFromPush(registration);
+            } else {
+              // Jika belum subscribe, subscribe
+              subscribeToPush(registration);
+            }
+          } catch (err) {
+            console.error('Error saat handle tombol subscribe:', err);
+            alert('Terjadi kesalahan saat mengubah status notifikasi: ' + err.message);
           }
         };
         
         // Tambahkan event listener untuk tombol mobile
         if (mobileButton) {
-          mobileButton.addEventListener('click', handleSubscribeClick);
+          // Hapus event listener lama jika ada
+          mobileButton.replaceWith(mobileButton.cloneNode(true));
+          const newMobileButton = document.getElementById('subscribe-button');
+          if (newMobileButton) {
+            newMobileButton.addEventListener('click', handleSubscribeClick);
+          }
         }
         
         // Tambahkan event listener untuk tombol desktop
         if (desktopButton) {
-          desktopButton.addEventListener('click', handleSubscribeClick);
+          // Hapus event listener lama jika ada
+          desktopButton.replaceWith(desktopButton.cloneNode(true));
+          const newDesktopButton = document.getElementById('desktop-subscribe-button');
+          if (newDesktopButton) {
+            newDesktopButton.addEventListener('click', handleSubscribeClick);
+          }
         }
       }
 

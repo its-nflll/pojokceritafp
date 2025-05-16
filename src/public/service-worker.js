@@ -1,5 +1,9 @@
+// Gunakan self.location.pathname untuk mendapatkan path relatif yang benar
+const basePath = self.location.pathname.replace('service-worker.js', '');
+
+// Import scripts dengan path relatif yang benar
 importScripts('https://storage.googleapis.com/workbox-cdn/releases/6.5.4/workbox-sw.js');
-importScripts('./idb-helper.js');
+importScripts(new URL('idb-helper.js', self.location.href).href);
 
 // Versi cache baru
 const CACHE_VERSION = 'v3';
