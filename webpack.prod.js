@@ -74,6 +74,10 @@ module.exports = merge(common, {
           from: path.resolve(__dirname, '.nojekyll'),
           to: path.resolve(__dirname, 'dist/.nojekyll'),
         },
+        {
+          from: path.resolve(__dirname, 'src/404.html'),
+          to: path.resolve(__dirname, 'dist/404.html'),
+        },
       ],
     }),
   ],

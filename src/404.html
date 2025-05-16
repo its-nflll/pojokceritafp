@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Halaman Tidak Ditemukan - PojokCerita</title>
+  <link rel="icon" href="./favicon.png">
+  <style>
+    body {
+      font-family: 'Poppins', sans-serif;
+      margin: 0;
+      padding: 0;
+      background-color: #f5f5f5;
+      color: #333;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+    }
+    .error-container {
+      text-align: center;
+      padding: 2rem;
+      max-width: 800px;
+      margin: 0 auto;
+      background-color: white;
+      border-radius: 8px;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    }
+    .error-code {
+      font-size: 6rem;
+      font-weight: bold;
+      margin-bottom: 1rem;
+      color: #e74c3c;
+    }
+    .error-message {
+      font-size: 1.5rem;
+      margin-bottom: 2rem;
+    }
+    .back-button {
+      display: inline-block;
+      padding: 0.75rem 1.5rem;
+      background-color: #4CAF50;
+      color: white;
+      text-decoration: none;
+      border-radius: 4px;
+      font-weight: bold;
+      transition: background-color 0.3s;
+    }
+    .back-button:hover {
+      background-color: #3e8e41;
+    }
+    .error-image {
+      max-width: 300px;
+      margin: 2rem auto;
+    }
+    .error-image img {
+      width: 100%;
+      height: auto;
+    }
+  </style>
+</head>
+<body>
+  <div class="error-container">
+    <div class="error-code">404</div>
+    <div class="error-message">Halaman yang Anda cari tidak ditemukan</div>
+    <div class="error-image">
+      <img src="./images/404.png" alt="Halaman tidak ditemukan" onerror="this.onerror=null; this.src='./images/logo.png';">
+    </div>
+    <a href="/" class="back-button">Kembali ke Beranda</a>
+  </div>
+</body>
+</html> 
