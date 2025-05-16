@@ -4,7 +4,20 @@ importScripts('./idb-helper.js');
 // Versi cache baru
 const CACHE_VERSION = 'v3';
 
-self.addEventListener('push', function(event) {
+self.addEventListener('push', async function(event) {
+  // Periksa apakah masih berlangganan push notification sebelum memproses
+  try {
+    const subscription = await self.registration.pushManager.getSubscription();
+    if (!subscription) {
+      console.log('[Service Worker] Pengguna tidak lagi berlangganan push notification, abaikan push event');
+      return; // Jangan tampilkan notifikasi jika tidak berlangganan
+    }
+  } catch (err) {
+    console.error('[Service Worker] Error saat memeriksa status subscription:', err);
+    return; // Abaikan push jika terjadi error
+  }
+  
+  // Lanjutkan dengan menampilkan notifikasi karena user masih berlangganan
   let notificationData = {
     title: 'PojokCerita',
     options: {
@@ -191,55 +204,113 @@ workbox.routing.setCatchHandler(async ({event}) => {
   return Response.error();
 });
 
-// Menangani pesan dari client untuk penghapusan cerita
-self.addEventListener('message', (event) => {
-  if (event.data && event.data.action === 'DELETE_STORY') {
+// Tambahkan handler baru untuk notifikasi
+self.addEventListener('message', async (event) => {
+  console.log('[Service Worker] Menerima pesan:', event.data);
+  
+  if (event.data && event.data.type === 'NOTIFY_NEW_STORY') {
+    const { title, options } = event.data;
+    console.log('[Service Worker] Memeriksa status berlangganan sebelum menampilkan notifikasi:', title);
+    
+    try {
+      // Periksa apakah pengguna berlangganan push notifikasi
+      const subscription = await self.registration.pushManager.getSubscription();
+      if (!subscription) {
+        console.log('[Service Worker] Pengguna belum berlangganan push notifikasi, notifikasi tidak ditampilkan');
+        // Jika ada port untuk memberi respons balik ke client
+        if (event.ports && event.ports[0]) {
+          event.ports[0].postMessage({
+            status: 'skipped',
+            message: 'User not subscribed to push notifications'
+          });
+        }
+        return;
+      }
+      
+      // Jika berlangganan, tampilkan notifikasi
+      await self.registration.showNotification(title, options);
+      console.log('[Service Worker] Notifikasi berhasil ditampilkan');
+      
+      // Jika ada port untuk memberi respons balik ke client
+      if (event.ports && event.ports[0]) {
+        event.ports[0].postMessage({
+          status: 'success',
+          message: 'Notification shown successfully'
+        });
+      }
+    } catch (err) {
+      console.error('[Service Worker] Error saat menampilkan notifikasi:', err);
+      // Jika ada port untuk memberi respons balik ke client
+      if (event.ports && event.ports[0]) {
+        event.ports[0].postMessage({
+          status: 'error',
+          message: err.message
+        });
+      }
+    }
+  } else if (event.data && event.data.action === 'DELETE_STORY') {
+    // Tangani penghapusan cerita
     const storyId = event.data.storyId;
     
-    if (storyId) {
-      // Coba hapus cerita (dengan pengambilan data terlebih dahulu untuk pastikan ada)
-      openDB()
-        .then(db => {
-          const tx = db.transaction(STORE_NAME, 'readonly');
-          const store = tx.objectStore(STORE_NAME);
-          return new Promise((resolve, reject) => {
-            const request = store.get(storyId);
-            request.onsuccess = () => {
-              if (request.result) {
-                resolve(true); // Cerita ditemukan
-              } else {
-                reject(new Error(`Story with ID ${storyId} not found`));
-              }
-            };
-            request.onerror = () => reject(request.error);
-          });
-        })
-        .then(() => deleteStory(storyId))
-        .then(() => {
-          console.log(`Story with ID ${storyId} successfully deleted from service worker`);
-          // Kirim pesan sukses ke client
-          if (event.ports && event.ports[0]) {
-            event.ports[0].postMessage({
-              status: 'success',
-              message: 'Story deleted from IndexedDB'
-            });
-          }
-        })
-        .catch((error) => {
-          console.error('Error deleting story from service worker:', error);
-          // Kirim pesan error ke client
-          if (event.ports && event.ports[0]) {
-            event.ports[0].postMessage({
-              status: 'error',
-              message: error.message || 'Failed to delete story'
-            });
-          }
+    try {
+      console.log('[Service Worker] Menghapus cerita dari IndexedDB:', storyId);
+      
+      // Periksa dulu apakah pengguna berlangganan push notifikasi
+      const subscription = await self.registration.pushManager.getSubscription();
+      const isSubscribed = !!subscription;
+      
+      // Proses penghapusan dari IndexedDB
+      const db = await openDB();
+      const tx = db.transaction('stories', 'readwrite');
+      const store = tx.objectStore('stories');
+      
+      // Hapus cerita dari IndexedDB
+      await store.delete(storyId);
+      console.log('[Service Worker] Cerita berhasil dihapus dari IndexedDB');
+      
+      // Kirim respons sukses ke client
+      if (event.ports && event.ports[0]) {
+        event.ports[0].postMessage({
+          status: 'success',
+          message: 'Story deleted successfully from IndexedDB',
+          isSubscribed: isSubscribed
         });
-    } else if (event.ports && event.ports[0]) {
-      event.ports[0].postMessage({
-        status: 'error',
-        message: 'Invalid story ID'
-      });
+      }
+      
+      // Tampilkan notifikasi hanya jika user berlangganan
+      if (isSubscribed) {
+        await self.registration.showNotification('PojokCerita', {
+          body: 'Cerita berhasil dihapus dari penyimpanan offline',
+          icon: '/images/logo.png',
+          badge: '/favicon.png'
+        });
+      } else {
+        console.log('[Service Worker] User tidak berlangganan, tidak menampilkan notifikasi');
+      }
+    } catch (err) {
+      console.error('[Service Worker] Error saat menghapus cerita:', err);
+      
+      // Kirim respons error ke client
+      if (event.ports && event.ports[0]) {
+        event.ports[0].postMessage({
+          status: 'error',
+          message: err.message
+        });
+      }
     }
+  }
+});
+
+// Event listener untuk klik notifikasi
+self.addEventListener('notificationclick', (event) => {
+  console.log('[Service Worker] Notification click received:', event);
+  
+  event.notification.close();
+  
+  // Navigasi ke halaman detail cerita
+  if (event.notification.data && event.notification.data.url) {
+    clients.openWindow(event.notification.data.url);
+  } else {
+    clients.openWindow('/');
   }
 });

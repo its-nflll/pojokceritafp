@@ -425,23 +425,26 @@ const HomeView = {
                     }, [messageChannel.port2]);
                     
                     // Wait for response with timeout fallback
-                    await Promise.race([
+                    const response = await Promise.race([
                       serviceWorkerDeletePromise,
                       new Promise(resolve => setTimeout(resolve, 3000, { status: 'timeout', message: 'Continuing without service worker response' }))
                     ]);
+                    
+                    // Periksa respons dari service worker jika notifikasi sudah ditampilkan
+                    // Jika Service Worker sudah menampilkan notifikasi sesuai status berlangganan,
+                    // kita tidak perlu menampilkan notifikasi lagi di sini
+                    if (response.status === 'success' && (typeof response.isSubscribed !== 'undefined')) {
+                      console.log('Service worker sudah menangani notifikasi sesuai status berlangganan:', response.isSubscribed);
+                    }
                   } catch (swError) {
                     console.warn('Service worker deletion error (continuing):', swError);
                     // Continue even if service worker communication fails
                   }
                 }
                 
-                // Remove from UI
-                liElement.remove();
-                
-                const favList = document.getElementById('fav-list');
-                if (favList.children.length === 0) {
-                  favList.innerHTML = '<li>Tidak ada cerita favorit offline.</li>';
-                }
+                // Reload the favorites list instead of just removing the element
+                // This ensures the UI is correctly updated after deletion
+                loadFavorites(currentPage);
                 
                 // Update total count
                 try {
@@ -451,14 +454,26 @@ const HomeView = {
                     statsEl.textContent = `Menampilkan ${Math.min(currentPage * 5, total)} dari ${total} cerita`;
                   }
                   
-                  // Show notification
+                  // Show notification hanya jika user sudah berlangganan
                   if (window.Notification && Notification.permission === 'granted') {
-                    navigator.serviceWorker.ready.then(registration => {
-                      registration.showNotification('PojokCerita', {
-                        body: 'Cerita berhasil dihapus dari penyimpanan offline',
-                        icon: '/images/logo.png',
-                        badge: '/favicon.png'
-                      });
+                    navigator.serviceWorker.ready.then(async registration => {
+                      try {
+                        // Periksa apakah user telah subscribe ke push notification
+                        const subscription = await registration.pushManager.getSubscription();
+                        if (!subscription) {
+                          console.log('User belum subscribe ke push notification, tidak menampilkan notifikasi');
+                          return; // Tidak tampilkan notifikasi jika belum subscribe
+                        }
+                        
+                        // Tampilkan notifikasi hanya jika sudah berlangganan
+                        registration.showNotification('PojokCerita', {
+                          body: 'Cerita berhasil dihapus dari penyimpanan offline',
+                          icon: '/images/logo.png',
+                          badge: '/favicon.png'
+                        });
+                      } catch (err) {
+                        console.error('Gagal memeriksa status berlangganan notifikasi:', err);
+                      }
                     });
                   }
                 } catch (countError) {
